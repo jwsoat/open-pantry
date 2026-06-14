@@ -1,0 +1,11 @@
+services:
+  open-pantry:
+    build: .
+    image: open-pantry
+    container_name: open-pantry
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist your pantry database on the host so it survives rebuilds.
+      - ./data:/app/data
+    restart: unless-stopped
