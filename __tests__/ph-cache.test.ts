@@ -42,4 +42,17 @@ describe("ph-cache", () => {
   it("TTL_MS is 24h", () => {
     expect(TTL_MS).toBe(24 * 3600 * 1000);
   });
+
+  it("freshness window is consistent across writers (no TZ skew)", () => {
+    putCached("p-tz", { id: "p-tz" });
+    expect(getCached("p-tz")).not.toBeNull();
+
+    const justBefore = new Date(Date.now() - 23 * 3600 * 1000).toISOString();
+    _exec(`UPDATE ph_cache SET fetched_at = ? WHERE id = ?`, [justBefore, "p-tz"]);
+    expect(getCached("p-tz")).not.toBeNull();
+
+    const justAfter = new Date(Date.now() - 25 * 3600 * 1000).toISOString();
+    _exec(`UPDATE ph_cache SET fetched_at = ? WHERE id = ?`, [justAfter, "p-tz"]);
+    expect(getCached("p-tz")).toBeNull();
+  });
 });

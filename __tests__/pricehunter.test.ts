@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { runMigrations } from "@/lib/migrations";
 import { _setDbForTest, setSetting } from "@/lib/settings";
-import { _setDbForTest as setPhCacheDb, putCached } from "@/lib/ph-cache";
+import { _setDbForTest as setPhCacheDb, putCached, getCached } from "@/lib/ph-cache";
 import * as ph from "@/lib/pricehunter";
 
 beforeEach(() => {
@@ -263,25 +263,23 @@ describe("getProduct", () => {
       retailers: [],
       photos: [],
     };
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify(product), { status: 200 }),
-    );
-    const out = await ph.getProduct("p2");
-    expect(out?.id).toBe("p2");
-    // Second call should be a cache hit:
-    const fetchMock = vi.spyOn(globalThis, "fetch");
-    const out2 = await ph.getProduct("p2");
-    expect(out2?.id).toBe("p2");
-    // fetchMock was just freshly spied; if a real fetch fired, it'd be called.
-    // The previous mockResolvedValue is still in effect, so count from second call alone.
-    // Confirm by asserting the cache row exists explicitly:
-    // (no direct assertion needed — the in-process cache obviously persists
-    // within one test; the cross-process behavior is in __tests__/ph-cache.test.ts.)
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(product), { status: 200 }));
+
+    const first = await ph.getProduct("p2");
+    expect(first?.id).toBe("p2");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const second = await ph.getProduct("p2");
+    expect(second?.id).toBe("p2");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns null and does not poison cache on fetch failure", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 500 }));
     const out = await ph.getProduct("p3");
     expect(out).toBeNull();
+    expect(getCached("p3")).toBeNull();
   });
 });

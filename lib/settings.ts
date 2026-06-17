@@ -1,10 +1,9 @@
 import type Database from "better-sqlite3";
 import { getDb as realGetDb } from "./db";
 
-// The settings module owns a test-DB pointer used by both itself and any
-// future module that needs to share the in-memory DB with tests (e.g.
-// lib/ph-cache.ts in T20). Production code never touches _testDb — the
-// hook is exported only because vitest needs it.
+// Test-DB override used only by vitest. Production reads through realGetDb().
+// Each module (settings, ph-cache) owns its own pointer — tests must call
+// _setDbForTest on every module that needs the same in-memory DB.
 let _testDb: Database.Database | null = null;
 
 function db(): Database.Database {

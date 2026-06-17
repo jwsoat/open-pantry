@@ -23,15 +23,19 @@ export function getCached<T>(id: string): T | null {
     .get(id) as { payload_json: string; fetched_at: string } | undefined;
   if (!row) return null;
   const fetched = new Date(row.fetched_at).getTime();
-  if (Date.now() - fetched > TTL_MS) return null;
-  return JSON.parse(row.payload_json) as T;
+  if (Number.isNaN(fetched) || Date.now() - fetched > TTL_MS) return null;
+  try {
+    return JSON.parse(row.payload_json) as T;
+  } catch {
+    return null;
+  }
 }
 
 export function putCached(id: string, payload: unknown): void {
   db()
     .prepare(
       `INSERT INTO ph_cache (id, payload_json, fetched_at)
-       VALUES (?, ?, datetime('now'))
+       VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
        ON CONFLICT(id) DO UPDATE SET payload_json = excluded.payload_json,
                                      fetched_at   = excluded.fetched_at`,
     )
