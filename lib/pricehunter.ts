@@ -3,6 +3,7 @@
 // is only imported by server-side code paths (API routes, server components)
 // in tasks T19+, so accidental client bundling is not a concern yet.
 import { getSetting } from "./settings";
+import { getCached, putCached } from "./ph-cache";
 
 const DEFAULT_BASE = "https://api.pricehunter.nz/v1";
 
@@ -100,4 +101,35 @@ export async function matchByEan(ean: string): Promise<PhSearchHit | null> {
 export async function matchByName(name: string): Promise<PhSearchHit | null> {
   if (!name) return null;
   return call<PhSearchHit>(`/match?name=${encodeURIComponent(name)}`);
+}
+
+export interface PhRetailer {
+  name: string;
+  logoUrl: string;
+  price: number;
+  unitPrice: string | null;
+  onSpecial: boolean;
+  specialEnds: string | null;
+  productUrl: string;
+  lastSeen: string;
+}
+
+export interface PhProduct {
+  id: string;
+  slug: string;
+  title: string;
+  brand: string | null;
+  imageUrl: string | null;
+  category: string | null;
+  retailers: PhRetailer[];
+  photos: string[];
+}
+
+export async function getProduct(id: string): Promise<PhProduct | null> {
+  if (!id) return null;
+  const cached = getCached<PhProduct>(id);
+  if (cached) return cached;
+  const fresh = await call<PhProduct>(`/product/${encodeURIComponent(id)}`);
+  if (fresh) putCached(id, fresh);
+  return fresh;
 }
