@@ -45,3 +45,59 @@ export function _effectiveConfig(): PricehunterConfig | null {
 export function isConfigured(): boolean {
   return _effectiveConfig() !== null;
 }
+
+export interface PhSearchHit {
+  id: string;
+  slug: string;
+  title: string;
+  brand: string | null;
+  imageUrl: string | null;
+  lowestPrice: number | null;
+  lowestRetailer: string | null;
+}
+
+/**
+ * Internal HTTP helper. Returns `null` on any failure (missing config,
+ * non-2xx response, network throw). Logs at warn level for non-404 failures
+ * so self-hosters can debug a wrong key, but never throws.
+ */
+async function call<T>(path: string): Promise<T | null> {
+  const cfg = _effectiveConfig();
+  if (!cfg) return null;
+  try {
+    const res = await fetch(`${cfg.baseUrl}${path}`, {
+      headers: { Authorization: `Bearer ${cfg.apiKey}` },
+    });
+    if (!res.ok) {
+      if (res.status !== 404) {
+        console.warn(`Pricehunter ${path} -> ${res.status}`);
+      }
+      return null;
+    }
+    return (await res.json()) as T;
+  } catch (err) {
+    console.warn(`Pricehunter ${path} threw:`, err);
+    return null;
+  }
+}
+
+export async function searchProducts(
+  q: string,
+  limit = 12,
+): Promise<PhSearchHit[]> {
+  if (q.trim().length < 2) return [];
+  const out = await call<PhSearchHit[]>(
+    `/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+  );
+  return out ?? [];
+}
+
+export async function matchByEan(ean: string): Promise<PhSearchHit | null> {
+  if (!ean) return null;
+  return call<PhSearchHit>(`/match?ean=${encodeURIComponent(ean)}`);
+}
+
+export async function matchByName(name: string): Promise<PhSearchHit | null> {
+  if (!name) return null;
+  return call<PhSearchHit>(`/match?name=${encodeURIComponent(name)}`);
+}
