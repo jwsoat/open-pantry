@@ -283,3 +283,93 @@ describe("getProduct", () => {
     expect(getCached("p3")).toBeNull();
   });
 });
+
+describe("pingPricehunter", () => {
+  beforeEach(() => {
+    setSetting("pricehunter.api_key", "ph_test");
+    setSetting("pricehunter.base_url", "https://api.example/v1");
+    ph._resetConfigForTest();
+  });
+
+  it("returns ok:false when not configured", async () => {
+    setSetting("pricehunter.api_key", "");
+    ph._resetConfigForTest();
+    const r = await ph.pingPricehunter();
+    expect(r.ok).toBe(false);
+    expect(r.status).toBeNull();
+    expect(r.error).toMatch(/No API key/);
+  });
+
+  it("returns ok:true with sample on 200 array", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "p1",
+            slug: "milk",
+            title: "Milk",
+            brand: null,
+            imageUrl: null,
+            lowestPrice: 4.99,
+            lowestRetailer: "paknsave",
+          },
+        ]),
+        { status: 200 },
+      ),
+    );
+    const r = await ph.pingPricehunter();
+    expect(r.ok).toBe(true);
+    expect(r.status).toBe(200);
+    expect(r.sample?.id).toBe("p1");
+  });
+
+  it("returns ok:true sample:undefined on 200 empty array", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("[]", { status: 200 }),
+    );
+    const r = await ph.pingPricehunter();
+    expect(r.ok).toBe(true);
+    expect(r.sample).toBeUndefined();
+  });
+
+  it("returns ok:false 401 with 'API key rejected'", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 401 }));
+    const r = await ph.pingPricehunter();
+    expect(r.ok).toBe(false);
+    expect(r.status).toBe(401);
+    expect(r.error).toMatch(/key rejected/i);
+  });
+
+  it("returns ok:false 404 with 'URL not found'", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 404 }));
+    const r = await ph.pingPricehunter();
+    expect(r.ok).toBe(false);
+    expect(r.status).toBe(404);
+    expect(r.error).toMatch(/URL not found/i);
+  });
+
+  it("returns ok:false 429 with rate-limit message", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 429 }));
+    const r = await ph.pingPricehunter();
+    expect(r.ok).toBe(false);
+    expect(r.status).toBe(429);
+    expect(r.error).toMatch(/rate limit/i);
+  });
+
+  it("returns ok:false on network throw", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
+    const r = await ph.pingPricehunter();
+    expect(r.ok).toBe(false);
+    expect(r.status).toBeNull();
+    expect(r.error).toMatch(/ECONNREFUSED|Network error/);
+  });
+
+  it("returns ok:false when 200 body isn't an array", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("not json at all", { status: 200 }),
+    );
+    const r = await ph.pingPricehunter();
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/Unexpected/);
+  });
+});

@@ -133,3 +133,51 @@ export async function getProduct(id: string): Promise<PhProduct | null> {
   if (fresh) putCached(id, fresh);
   return fresh;
 }
+
+export interface PhPingResult {
+  ok: boolean;
+  status: number | null; // HTTP status if we got a response, null on network failure or missing config
+  error?: string;        // human-readable message when ok is false
+  sample?: PhSearchHit;  // first hit if the probe returned results
+}
+
+/**
+ * One-shot probe used by the settings page's "Test connection" button.
+ * Unlike searchProducts, this returns a structured ok/status/error result
+ * so the UI can tell "key rejected (401)" apart from "key OK, no results"
+ * apart from "network failure".
+ */
+export async function pingPricehunter(): Promise<PhPingResult> {
+  const cfg = _effectiveConfig();
+  if (!cfg) {
+    return { ok: false, status: null, error: "No API key configured" };
+  }
+  try {
+    const res = await fetch(`${cfg.baseUrl}/search?q=milk&limit=1`, {
+      headers: { Authorization: `Bearer ${cfg.apiKey}` },
+    });
+    if (!res.ok) {
+      const msg =
+        res.status === 401 || res.status === 403
+          ? "API key rejected"
+          : res.status === 404
+          ? "URL not found — check baseUrl"
+          : res.status === 429
+          ? "Rate limited — try again in a minute"
+          : `Server returned ${res.status}`;
+      return { ok: false, status: res.status, error: msg };
+    }
+    const body = await res.json().catch(() => null);
+    if (!Array.isArray(body)) {
+      return { ok: false, status: res.status, error: "Unexpected response shape" };
+    }
+    const sample = body.length > 0 ? (body[0] as PhSearchHit) : undefined;
+    return { ok: true, status: res.status, sample };
+  } catch (err) {
+    return {
+      ok: false,
+      status: null,
+      error: err instanceof Error ? err.message : "Network error",
+    };
+  }
+}
