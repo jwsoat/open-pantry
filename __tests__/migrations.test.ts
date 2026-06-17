@@ -44,4 +44,23 @@ describe("runMigrations", () => {
       .all() as Array<{ name: string }>;
     expect(applied).toHaveLength(1);
   });
+
+  it("0002 adds ph_product_id columns and ph_cache + settings tables", () => {
+    const db = fresh();
+    runMigrations(db);
+    const cols = db
+      .prepare(`PRAGMA table_info(pantry_items)`)
+      .all() as Array<{ name: string }>;
+    expect(cols.map((c) => c.name)).toContain("ph_product_id");
+    const shopCols = db
+      .prepare(`PRAGMA table_info(shopping_list_items)`)
+      .all() as Array<{ name: string }>;
+    expect(shopCols.map((c) => c.name)).toContain("ph_product_id");
+    const tables = db
+      .prepare(`SELECT name FROM sqlite_master WHERE type='table'`)
+      .all() as Array<{ name: string }>;
+    const names = tables.map((t) => t.name);
+    expect(names).toContain("ph_cache");
+    expect(names).toContain("settings");
+  });
 });
