@@ -2,7 +2,7 @@
 
 A **free, self-hostable home grocery inventory** with **expiry tracking** and a **shopping list**. Run it on your own machine — your data lives in a single local SQLite file and **never leaves your computer**. No accounts, no cloud, no tracking.
 
-> Open Pantry is the free, local-first edition. A planned **Pro upgrade** will optionally connect to [PriceHunter](https://github.com/jwsoat/pricehunter) to show the cheapest NZ price for items on your shopping list and sync across devices — entirely opt-in. The free edition has **zero external connections**.
+> Open Pantry is the free, local-first edition. A planned **Pro upgrade** will optionally connect to [PriceHunter](https://pricehunter.co.nz) to show the cheapest NZ price for items on your shopping list and sync across devices — entirely opt-in. The free edition has **zero external connections**.
 
 ## Features
 
